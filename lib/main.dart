@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'core/service_locator/service_locator.dart' as service_locator;
+import 'core/navigation/app.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await service_locator.init();
   runApp(const MainApp());
 }
 
@@ -9,12 +13,6 @@ class MainApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text('Hello World!'),
-        ),
-      ),
-    );
+    return const MoneyTrackerApp();
   }
 }
