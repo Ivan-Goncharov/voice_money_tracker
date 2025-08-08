@@ -17,7 +17,9 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
       final expenses = await _database.expensesDao.getAllExpenses();
       return Right(expenses);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to get all expenses: ${e.toString()}'));
+      return Left(
+        DatabaseFailure('Failed to get all expenses: ${e.toString()}'),
+      );
     }
   }
 
@@ -27,20 +29,33 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     DateTime endDate,
   ) async {
     try {
-      final expenses = await _database.expensesDao.getExpensesByDateRange(startDate, endDate);
+      final expenses = await _database.expensesDao.getExpensesByDateRange(
+        startDate,
+        endDate,
+      );
       return Right(expenses);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to get expenses by date range: ${e.toString()}'));
+      return Left(
+        DatabaseFailure(
+          'Failed to get expenses by date range: ${e.toString()}',
+        ),
+      );
     }
   }
 
   @override
-  Future<Either<Failure, List<ExpenseEntity>>> getExpensesByCategory(int categoryId) async {
+  Future<Either<Failure, List<ExpenseEntity>>> getExpensesByCategory(
+    int categoryId,
+  ) async {
     try {
-      final expenses = await _database.expensesDao.getExpensesByCategory(categoryId);
+      final expenses = await _database.expensesDao.getExpensesByCategory(
+        categoryId,
+      );
       return Right(expenses);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to get expenses by category: ${e.toString()}'));
+      return Left(
+        DatabaseFailure('Failed to get expenses by category: ${e.toString()}'),
+      );
     }
   }
 
@@ -50,22 +65,34 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
       final expense = await _database.expensesDao.getExpenseById(id);
       return Right(expense);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to get expense by ID: ${e.toString()}'));
+      return Left(
+        DatabaseFailure('Failed to get expense by ID: ${e.toString()}'),
+      );
     }
   }
 
   @override
   Future<Either<Failure, int>> insertExpense(ExpensesCompanion expense) async {
     try {
+      print(
+        'DEBUG: ExpenseRepositoryImpl.insertExpense called with expense: $expense',
+      );
       final id = await _database.expensesDao.insertExpense(expense);
+      print('DEBUG: ExpenseRepositoryImpl.insertExpense success, id: $id');
       return Right(id);
     } catch (e) {
+      print(
+        'DEBUG: ExpenseRepositoryImpl.insertExpense failed: ${e.toString()}',
+      );
       return Left(DatabaseFailure('Failed to insert expense: ${e.toString()}'));
     }
   }
 
   @override
-  Future<Either<Failure, bool>> updateExpense(int id, ExpensesCompanion expense) async {
+  Future<Either<Failure, bool>> updateExpense(
+    int id,
+    ExpensesCompanion expense,
+  ) async {
     try {
       final success = await _database.expensesDao.updateExpense(id, expense);
       return Right(success);
@@ -85,12 +112,20 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
   }
 
   @override
-  Future<Either<Failure, double>> getTotalExpensesByCategory(int categoryId) async {
+  Future<Either<Failure, double>> getTotalExpensesByCategory(
+    int categoryId,
+  ) async {
     try {
-      final total = await _database.expensesDao.getTotalExpensesByCategory(categoryId);
+      final total = await _database.expensesDao.getTotalExpensesByCategory(
+        categoryId,
+      );
       return Right(total);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to get total expenses by category: ${e.toString()}'));
+      return Left(
+        DatabaseFailure(
+          'Failed to get total expenses by category: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -100,20 +135,32 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     DateTime endDate,
   ) async {
     try {
-      final total = await _database.expensesDao.getTotalExpensesByDateRange(startDate, endDate);
+      final total = await _database.expensesDao.getTotalExpensesByDateRange(
+        startDate,
+        endDate,
+      );
       return Right(total);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to get total expenses by date range: ${e.toString()}'));
+      return Left(
+        DatabaseFailure(
+          'Failed to get total expenses by date range: ${e.toString()}',
+        ),
+      );
     }
   }
 
   @override
-  Future<Either<Failure, List<ExpenseWithCategory>>> getExpensesWithCategory() async {
+  Future<Either<Failure, List<ExpenseWithCategory>>>
+  getExpensesWithCategory() async {
     try {
       final expenses = await _database.expensesDao.getExpensesWithCategory();
       return Right(expenses);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to get expenses with category: ${e.toString()}'));
+      return Left(
+        DatabaseFailure(
+          'Failed to get expenses with category: ${e.toString()}',
+        ),
+      );
     }
   }
 
@@ -123,12 +170,16 @@ class ExpenseRepositoryImpl implements ExpenseRepository {
     DateTime endDate,
   ) {
     try {
-      return _database.expensesDao.watchExpensesByDateRange(startDate, endDate).map(
-        (expenses) => Right<Failure, List<ExpenseEntity>>(expenses),
-      );
+      return _database.expensesDao
+          .watchExpensesByDateRange(startDate, endDate)
+          .map((expenses) => Right<Failure, List<ExpenseEntity>>(expenses));
     } catch (e) {
       return Stream.value(
-        Left(DatabaseFailure('Failed to watch expenses by date range: ${e.toString()}')),
+        Left(
+          DatabaseFailure(
+            'Failed to watch expenses by date range: ${e.toString()}',
+          ),
+        ),
       );
     }
   }

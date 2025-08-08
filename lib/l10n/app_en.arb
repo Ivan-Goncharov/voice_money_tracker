@@ -1,0 +1,207 @@
+{
+  "@@locale": "en",
+  "appTitle": "Money Tracker",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+  
+  "analytics": "Analytics",
+  "@analytics": {
+    "description": "Analytics tab title"
+  },
+  
+  "settings": "Settings",
+  "@settings": {
+    "description": "Settings tab title"
+  },
+  
+  "currentBalance": "Current Balance",
+  "@currentBalance": {
+    "description": "Label for current balance card"
+  },
+  
+  "expenses": "Expenses",
+  "@expenses": {
+    "description": "Label for expenses"
+  },
+  
+  "income": "Income",
+  "@income": {
+    "description": "Label for income"
+  },
+  
+  "thisMonth": "This month",
+  "@thisMonth": {
+    "description": "Label for current month period"
+  },
+  
+  "expensesByCategory": "Expenses by Category",
+  "@expensesByCategory": {
+    "description": "Title for category breakdown chart"
+  },
+  
+  "recentTransactions": "Recent Transactions",
+  "@recentTransactions": {
+    "description": "Title for recent transactions list"
+  },
+  
+  "viewAll": "View All",
+  "@viewAll": {
+    "description": "Button to view all items"
+  },
+  
+  "noRecentTransactions": "No recent transactions",
+  "@noRecentTransactions": {
+    "description": "Message when no recent transactions available"
+  },
+  
+  "noExpenseData": "No expense data available",
+  "@noExpenseData": {
+    "description": "Message when no expense data for chart"
+  },
+  
+  "addExpense": "Add Expense",
+  "@addExpense": {
+    "description": "Button to add new expense"
+  },
+  
+  "appearance": "Appearance",
+  "@appearance": {
+    "description": "Settings section for appearance"
+  },
+  
+  "theme": "Theme",
+  "@theme": {
+    "description": "Theme setting"
+  },
+  
+  "language": "Language",
+  "@language": {
+    "description": "Language setting"
+  },
+  
+  "systemDefault": "System default",
+  "@systemDefault": {
+    "description": "System default option"
+  },
+  
+  "light": "Light",
+  "@light": {
+    "description": "Light theme option"
+  },
+  
+  "dark": "Dark",
+  "@dark": {
+    "description": "Dark theme option"
+  },
+  
+  "chooseTheme": "Choose Theme",
+  "@chooseTheme": {
+    "description": "Theme selection dialog title"
+  },
+  
+  "chooseLanguage": "Choose Language",
+  "@chooseLanguage": {
+    "description": "Language selection dialog title"
+  },
+  
+  "data": "Data",
+  "@data": {
+    "description": "Settings section for data"
+  },
+  
+  "backupSync": "Backup & Sync",
+  "@backupSync": {
+    "description": "Backup and sync setting"
+  },
+  
+  "exportYourData": "Export your data",
+  "@exportYourData": {
+    "description": "Backup setting description"
+  },
+  
+  "clearData": "Clear Data",
+  "@clearData": {
+    "description": "Clear data setting"
+  },
+  
+  "resetAllData": "Reset all data",
+  "@resetAllData": {
+    "description": "Clear data setting description"
+  },
+  
+  "about": "About",
+  "@about": {
+    "description": "Settings section for about"
+  },
+  
+  "version": "Version",
+  "@version": {
+    "description": "App version setting"
+  },
+  
+  "privacyPolicy": "Privacy Policy",
+  "@privacyPolicy": {
+    "description": "Privacy policy setting"
+  },
+  
+  "howWeHandleData": "How we handle your data",
+  "@howWeHandleData": {
+    "description": "Privacy policy description"
+  },
+  
+  "backupData": "Backup Data",
+  "@backupData": {
+    "description": "Backup dialog title"
+  },
+  
+  "exportDataDescription": "Export your data to a file for backup purposes.",
+  "@exportDataDescription": {
+    "description": "Backup dialog description"
+  },
+  
+  "clearAllData": "Clear All Data",
+  "@clearAllData": {
+    "description": "Clear data dialog title"
+  },
+  
+  "clearDataWarning": "This will permanently delete all your expenses, categories, and settings. This action cannot be undone.",
+  "@clearDataWarning": {
+    "description": "Clear data warning message"
+  },
+  
+  "cancel": "Cancel",
+  "@cancel": {
+    "description": "Cancel button"
+  },
+  
+  "export": "Export",
+  "@export": {
+    "description": "Export button"
+  },
+  
+  "close": "Close",
+  "@close": {
+    "description": "Close button"
+  },
+  
+  "privacyPolicyText": "Money Tracker respects your privacy. All data is stored locally on your device and is not shared with third parties.\\n\\nWe do not collect, store, or transmit any personal information.\\n\\nYour financial data remains private and secure on your device.",
+  "@privacyPolicyText": {
+    "description": "Privacy policy text"
+  },
+  
+  "errorLoadingAnalytics": "Error loading analytics",
+  "@errorLoadingAnalytics": {
+    "description": "Error message for analytics loading failure"
+  },
+  
+  "retry": "Retry",
+  "@retry": {
+    "description": "Retry button"
+  },
+  
+  "unknownCategory": "Unknown Category",
+  "@unknownCategory": {
+    "description": "Fallback category name"
+  }
+}

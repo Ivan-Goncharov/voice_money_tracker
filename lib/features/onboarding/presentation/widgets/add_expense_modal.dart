@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/service_locator/service_locator.dart';
 import '../../../../core/data/database/database.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/navigation/navigation_bloc.dart';
 import '../../../category/presentation/bloc/category_bloc.dart';
 import '../../../expense/presentation/bloc/expense_bloc.dart';
+import '../../../analytics/presentation/bloc/analytics_bloc.dart';
+import '../../../currency/presentation/bloc/currency_bloc.dart';
 import '../bloc/onboarding_bloc.dart';
 import 'category_selection_bottom_sheet.dart';
 import 'date_selection_bottom_sheet.dart';
+import 'currency_selection_bottom_sheet.dart';
 
 /// Modal widget for adding a new expense
 /// Used during onboarding and regular expense addition
@@ -25,13 +27,12 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
   final _descriptionController = TextEditingController();
 
   CategoryEntity? _selectedCategory;
+  CurrencyEntity? _selectedCurrency;
   DateTime _selectedDate = DateTime.now();
-  CategoryBloc? _categoryBloc;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _categoryBloc ??= context.read<CategoryBloc>();
+  void initState() {
+    super.initState();
   }
 
   @override
@@ -43,35 +44,21 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create:
-              (context) =>
-                  getIt<CategoryBloc>()..add(const LoadActiveCategories()),
-        ),
-        BlocProvider(create: (context) => getIt<ExpenseBloc>()),
-      ],
-      child: Container(
-        decoration: const BoxDecoration(
-          color: AppTheme.surfaceLight,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: DraggableScrollableSheet(
-          initialChildSize: 0.8,
-          minChildSize: 0.6,
-          maxChildSize: 0.95,
-          expand: false,
-          builder: (context, scrollController) {
-            return SingleChildScrollView(
-              controller: scrollController,
-              padding: const EdgeInsets.all(24),
-              child: _buildForm(),
-            );
-          },
+    // Trigger default currency loading when modal is built
+    context.read<CurrencyBloc>().add(const LoadDefaultCurrency());
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: AppTheme.surfaceLight,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: IntrinsicHeight(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: _buildForm(),
         ),
       ),
     );
@@ -96,28 +83,12 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
           ),
           const SizedBox(height: 24),
 
-          // Title with icon
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.add,
-                  color: AppTheme.textLight,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'Add Expense',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-            ],
+          // Title
+          Center(
+            child: Text(
+              'App Expense',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
           ),
           const SizedBox(height: 32),
 
@@ -132,12 +103,44 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
                   onTap: _showCategorySelection,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
-                child: _buildSelectionButton(
+                child: BlocConsumer<CurrencyBloc, CurrencyState>(
+                  listener: (context, state) {
+                    if (state is DefaultCurrencyLoaded &&
+                        state.currency != null) {
+                      setState(() {
+                        _selectedCurrency = state.currency;
+                      });
+                    }
+                  },
+                  builder: (context, state) {
+                    String label = '₽';
+                    bool isSelected = false;
+
+                    if (state is DefaultCurrencyLoaded &&
+                        state.currency != null) {
+                      label = state.currency!.symbol;
+                      isSelected = true;
+                    } else if (_selectedCurrency != null) {
+                      label = _selectedCurrency!.symbol;
+                      isSelected = true;
+                    }
+
+                    return _buildSelectionButton(
+                      icon: Icons.attach_money,
+                      label: label,
+                      isSelected: isSelected,
+                      onTap: _showCurrencySelection,
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildDateSelectionButton(
                   icon: Icons.calendar_today,
                   label: _getFormattedDate(_selectedDate),
-                  isSelected: true,
                   onTap: _showDateSelection,
                 ),
               ),
@@ -158,60 +161,68 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _amountController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    color: AppTheme.primaryBlue,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: '0.00',
-                    prefixText: '\$ ',
-                    prefixStyle: Theme.of(
-                      context,
-                    ).textTheme.headlineLarge?.copyWith(
-                      color: AppTheme.primaryBlue,
-                      fontWeight: FontWeight.bold,
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Centered text field
+                    TextFormField(
+                      controller: _amountController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.headlineLarge?.copyWith(
+                        color: AppTheme.primaryBlue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      decoration: const InputDecoration(
+                        hintText: '0.00',
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 40),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter an amount';
+                        }
+                        final amount = double.tryParse(value);
+                        if (amount == null || amount <= 0) {
+                          return 'Please enter a valid amount';
+                        }
+                        return null;
+                      },
                     ),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter an amount';
-                    }
-                    final amount = double.tryParse(value);
-                    if (amount == null || amount <= 0) {
-                      return 'Please enter a valid amount';
-                    }
-                    return null;
-                  },
+                    // Dollar sign positioned on the left
+                    Positioned(
+                      left: 0,
+                      child: Text(
+                        '\$ ',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.headlineLarge?.copyWith(
+                          color: AppTheme.primaryBlue,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
 
-          // Description field
+          // Description field (optional)
           TextFormField(
             controller: _descriptionController,
             decoration: const InputDecoration(
-              labelText: 'Description',
+              labelText: 'Description (optional)',
               hintText: 'What did you spend on?',
               prefixIcon: Icon(Icons.description),
             ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Please enter a description';
-              }
-              return null;
-            },
           ),
           const SizedBox(height: 24),
 
@@ -221,6 +232,9 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
           BlocConsumer<ExpenseBloc, ExpenseState>(
             listener: (context, state) {
               if (state is ExpenseCreated) {
+                // Refresh analytics to show the new transaction
+                context.read<AnalyticsBloc>().add(const RefreshAnalytics());
+
                 // Complete onboarding if this is the first expense
                 context.read<OnboardingBloc>().add(const CompleteOnboarding());
                 // Close modal
@@ -283,14 +297,14 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return _AnimatedButton(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color:
               isSelected
-                  ? AppTheme.primaryBlue.withOpacity(0.1)
+                  ? AppTheme.primaryBlue.withValues(alpha: 0.1)
                   : AppTheme.surfaceLight,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
@@ -299,7 +313,7 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -331,9 +345,50 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
     );
   }
 
+  Widget _buildDateSelectionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return _AnimatedButton(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceLight,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[300]!, width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: AppTheme.textSecondary, size: 24),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.normal,
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showCategorySelection() {
-    if (_categoryBloc == null) return;
-    final categoryState = _categoryBloc!.state;
+    final categoryState = context.read<CategoryBloc>().state;
 
     List<CategoryEntity> categories = [];
     if (categoryState is CategoryLoaded) {
@@ -383,6 +438,23 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
     );
   }
 
+  void _showCurrencySelection() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => CurrencySelectionBottomSheet(
+            selectedCurrency: _selectedCurrency,
+            onCurrencySelected: (currency) {
+              setState(() {
+                _selectedCurrency = currency;
+              });
+            },
+          ),
+    );
+  }
+
   String _getFormattedDate(DateTime date) {
     final now = DateTime.now();
     final yesterday = now.subtract(const Duration(days: 1));
@@ -401,8 +473,13 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
   }
 
   void _saveExpense() {
+    print('DEBUG: _saveExpense called');
+
     if (_formKey.currentState!.validate()) {
+      print('DEBUG: Form validation passed');
+
       if (_selectedCategory == null) {
+        print('DEBUG: No category selected');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Please select a category'),
@@ -415,15 +492,78 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
       final amount = double.parse(_amountController.text);
       final description = _descriptionController.text.trim();
 
+      print(
+        'DEBUG: Creating expense - amount: $amount, description: $description, categoryId: ${_selectedCategory!.id}, currencyId: ${_selectedCurrency?.id}',
+      );
+
       context.read<ExpenseBloc>().add(
         CreateExpense(
           amount: amount,
-          description: description,
+          description: description.isEmpty ? null : description,
           categoryId: _selectedCategory!.id,
           date: _selectedDate,
+          currencyId: _selectedCurrency?.id,
           notes: null, // Removed notes field for simplicity
         ),
       );
+    } else {
+      print('DEBUG: Form validation failed');
     }
+  }
+}
+
+/// Animated button widget with scale effect on tap
+class _AnimatedButton extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _AnimatedButton({required this.child, required this.onTap});
+
+  @override
+  State<_AnimatedButton> createState() => _AnimatedButtonState();
+}
+
+class _AnimatedButtonState extends State<_AnimatedButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _animationController.forward(),
+      onTapUp: (_) {
+        _animationController.reverse();
+        widget.onTap();
+      },
+      onTapCancel: () => _animationController.reverse(),
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: widget.child,
+          );
+        },
+      ),
+    );
   }
 }

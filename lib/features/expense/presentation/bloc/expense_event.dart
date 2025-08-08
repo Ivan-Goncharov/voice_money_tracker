@@ -33,18 +33,20 @@ final class LoadExpensesByCategory extends ExpenseEvent {
 final class CreateExpense extends ExpenseEvent {
   const CreateExpense({
     required this.amount,
-    required this.description,
+    this.description,
     required this.categoryId,
     required this.date,
+    this.currencyId,
     this.notes,
     this.isRecurring = false,
     this.recurringType,
   });
 
   final double amount;
-  final String description;
+  final String? description;
   final int categoryId;
   final DateTime date;
+  final int? currencyId;
   final String? notes;
   final bool isRecurring;
   final String? recurringType;
@@ -58,6 +60,7 @@ final class UpdateExpense extends ExpenseEvent {
     this.description,
     this.categoryId,
     this.date,
+    this.currencyId,
     this.notes,
     this.isRecurring,
     this.recurringType,
@@ -68,6 +71,7 @@ final class UpdateExpense extends ExpenseEvent {
   final String? description;
   final int? categoryId;
   final DateTime? date;
+  final int? currencyId;
   final String? notes;
   final bool? isRecurring;
   final String? recurringType;

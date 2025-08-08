@@ -34,6 +34,7 @@ class ExpenseBloc extends Bloc<ExpenseEvent, ExpenseState> {
         event.description,
         event.categoryId,
         event.date,
+        event.currencyId,
         event.notes,
         event.isRecurring,
         event.recurringType,
@@ -47,6 +48,7 @@ class ExpenseBloc extends Bloc<ExpenseEvent, ExpenseState> {
         event.description,
         event.categoryId,
         event.date,
+        event.currencyId,
         event.notes,
         event.isRecurring,
         event.recurringType,
@@ -123,13 +125,17 @@ class ExpenseBloc extends Bloc<ExpenseEvent, ExpenseState> {
   Future<void> _onCreateExpense(
     Emitter<ExpenseState> emit,
     double amount,
-    String description,
+    String? description,
     int categoryId,
     DateTime date,
+    int? currencyId,
     String? notes,
     bool isRecurring,
     String? recurringType,
   ) async {
+    print(
+      'DEBUG: ExpenseBloc._onCreateExpense called with amount: $amount, categoryId: $categoryId',
+    );
     emit(const ExpenseLoading());
 
     final result = await _interactor.createExpense(
@@ -137,14 +143,21 @@ class ExpenseBloc extends Bloc<ExpenseEvent, ExpenseState> {
       description: description,
       categoryId: categoryId,
       date: date,
+      currencyId: currencyId,
       notes: notes,
       isRecurring: isRecurring,
       recurringType: recurringType,
     );
 
     await result.fold(
-      (failure) async => emit(ExpenseError(message: failure.message)),
+      (failure) async {
+        print('DEBUG: ExpenseBloc._onCreateExpense failed: ${failure.message}');
+        emit(ExpenseError(message: failure.message));
+      },
       (expenseId) async {
+        print(
+          'DEBUG: ExpenseBloc._onCreateExpense success, expenseId: $expenseId',
+        );
         // Reload expenses after creation
         final expensesResult = await _interactor.getAllExpenses();
         expensesResult.fold(
@@ -164,6 +177,7 @@ class ExpenseBloc extends Bloc<ExpenseEvent, ExpenseState> {
     String? description,
     int? categoryId,
     DateTime? date,
+    int? currencyId,
     String? notes,
     bool? isRecurring,
     String? recurringType,
@@ -176,6 +190,7 @@ class ExpenseBloc extends Bloc<ExpenseEvent, ExpenseState> {
       description: description,
       categoryId: categoryId,
       date: date,
+      currencyId: currencyId,
       notes: notes,
       isRecurring: isRecurring,
       recurringType: recurringType,

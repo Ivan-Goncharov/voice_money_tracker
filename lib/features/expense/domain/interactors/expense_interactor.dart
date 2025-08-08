@@ -25,7 +25,9 @@ class ExpenseInteractor {
   }
 
   /// Get expenses for a specific category
-  Future<Either<Failure, List<ExpenseEntity>>> getExpensesByCategory(int categoryId) async {
+  Future<Either<Failure, List<ExpenseEntity>>> getExpensesByCategory(
+    int categoryId,
+  ) async {
     return await _repository.getExpensesByCategory(categoryId);
   }
 
@@ -37,9 +39,10 @@ class ExpenseInteractor {
   /// Create a new expense
   Future<Either<Failure, int>> createExpense({
     required double amount,
-    required String description,
+    String? description,
     required int categoryId,
     required DateTime date,
+    int? currencyId,
     String? notes,
     bool isRecurring = false,
     String? recurringType,
@@ -49,15 +52,11 @@ class ExpenseInteractor {
       return const Left(ValidationFailure('Amount must be greater than 0'));
     }
 
-    // Validate description
-    if (description.trim().isEmpty) {
-      return const Left(ValidationFailure('Description cannot be empty'));
-    }
-
     final expense = ExpensesCompanion.insert(
       amount: amount,
-      description: description.trim(),
+      description: Value(description?.trim()),
       categoryId: categoryId,
+      currencyId: Value(currencyId ?? 1), // Default to RUB (ID 1)
       date: date,
       notes: Value(notes),
       isRecurring: Value(isRecurring),
@@ -74,6 +73,7 @@ class ExpenseInteractor {
     String? description,
     int? categoryId,
     DateTime? date,
+    int? currencyId,
     String? notes,
     bool? isRecurring,
     String? recurringType,
@@ -83,19 +83,20 @@ class ExpenseInteractor {
       return const Left(ValidationFailure('Amount must be greater than 0'));
     }
 
-    // Validate description if provided
-    if (description != null && description.trim().isEmpty) {
-      return const Left(ValidationFailure('Description cannot be empty'));
-    }
-
     final expense = ExpensesCompanion(
       amount: amount != null ? Value(amount) : const Value.absent(),
-      description: description != null ? Value(description.trim()) : const Value.absent(),
+      description:
+          description != null
+              ? Value(description.trim())
+              : const Value.absent(),
       categoryId: categoryId != null ? Value(categoryId) : const Value.absent(),
+      currencyId: currencyId != null ? Value(currencyId) : const Value.absent(),
       date: date != null ? Value(date) : const Value.absent(),
       notes: notes != null ? Value(notes) : const Value.absent(),
-      isRecurring: isRecurring != null ? Value(isRecurring) : const Value.absent(),
-      recurringType: recurringType != null ? Value(recurringType) : const Value.absent(),
+      isRecurring:
+          isRecurring != null ? Value(isRecurring) : const Value.absent(),
+      recurringType:
+          recurringType != null ? Value(recurringType) : const Value.absent(),
       updatedAt: Value(DateTime.now()),
     );
 
@@ -108,7 +109,9 @@ class ExpenseInteractor {
   }
 
   /// Get total amount of expenses for a specific category
-  Future<Either<Failure, double>> getTotalExpensesByCategory(int categoryId) async {
+  Future<Either<Failure, double>> getTotalExpensesByCategory(
+    int categoryId,
+  ) async {
     return await _repository.getTotalExpensesByCategory(categoryId);
   }
 
@@ -121,7 +124,8 @@ class ExpenseInteractor {
   }
 
   /// Get expenses with their associated category information
-  Future<Either<Failure, List<ExpenseWithCategory>>> getExpensesWithCategory() async {
+  Future<Either<Failure, List<ExpenseWithCategory>>>
+  getExpensesWithCategory() async {
     return await _repository.getExpensesWithCategory();
   }
 
