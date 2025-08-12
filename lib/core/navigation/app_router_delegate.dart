@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../features/onboarding/presentation/screens/home_screen.dart';
-import '../../features/onboarding/presentation/widgets/add_expense_modal.dart';
+import '../../features/add_expense/presentation/widgets/add_expense_modal.dart';
+import '../../features/add_expense/presentation/blocs/add_expense_bloc/add_expense_modal_bloc.dart';
 import '../../features/category/presentation/bloc/category_bloc.dart';
 import '../../features/expense/presentation/bloc/expense_bloc.dart';
 import '../../features/currency/presentation/bloc/currency_bloc.dart';
