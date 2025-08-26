@@ -1,39 +1,45 @@
 part of 'category_bloc.dart';
 
-/// Events for CategoryBloc
-/// Represents all possible user actions and system events for categories
+/// Events for CategoryBloc (past-tense, specific)
 sealed class CategoryEvent {
   const CategoryEvent();
 }
 
-/// Load all active categories
-final class LoadActiveCategories extends CategoryEvent {
-  const LoadActiveCategories();
+/// Internal: categories stream pushed a new value
+final class _CategoriesStreamUpdated extends CategoryEvent {
+  const _CategoriesStreamUpdated(this.payload);
+  final Either<Failure, List<CategoryEntity>> payload;
 }
 
-/// Load all categories (including inactive)
-final class LoadAllCategories extends CategoryEvent {
-  const LoadAllCategories();
+/// Filter toggled (active-only or all)
+final class CategoriesFilterChanged extends CategoryEvent {
+  const CategoriesFilterChanged(this.activeOnly);
+  final bool activeOnly;
 }
 
-/// Create a new category
-final class CreateCategory extends CategoryEvent {
-  const CreateCategory({
+/// Search query changed
+final class CategorySearchChanged extends CategoryEvent {
+  const CategorySearchChanged(this.query);
+  final String query;
+}
+
+/// Create requested
+final class CategoryCreateRequested extends CategoryEvent {
+  const CategoryCreateRequested({
     required this.name,
     this.description,
     required this.color,
     required this.iconCodePoint,
   });
-
   final String name;
   final String? description;
   final String color;
   final int iconCodePoint;
 }
 
-/// Update an existing category
-final class UpdateCategory extends CategoryEvent {
-  const UpdateCategory({
+/// Update requested
+final class CategoryUpdatedRequested extends CategoryEvent {
+  const CategoryUpdatedRequested({
     required this.id,
     this.name,
     this.description,
@@ -41,7 +47,6 @@ final class UpdateCategory extends CategoryEvent {
     this.iconCodePoint,
     this.isActive,
   });
-
   final int id;
   final String? name;
   final String? description;
@@ -50,26 +55,14 @@ final class UpdateCategory extends CategoryEvent {
   final bool? isActive;
 }
 
-/// Deactivate a category (soft delete)
-final class DeactivateCategory extends CategoryEvent {
-  const DeactivateCategory(this.id);
-
+/// Deactivate requested (soft delete)
+final class CategoryDeactivatedRequested extends CategoryEvent {
+  const CategoryDeactivatedRequested(this.id);
   final int id;
 }
 
-/// Delete a category permanently
-final class DeleteCategory extends CategoryEvent {
-  const DeleteCategory(this.id);
-
+/// Delete requested (hard delete)
+final class CategoryDeletedRequested extends CategoryEvent {
+  const CategoryDeletedRequested(this.id);
   final int id;
-}
-
-/// Start watching categories for real-time updates
-final class StartWatchingCategories extends CategoryEvent {
-  const StartWatchingCategories();
-}
-
-/// Stop watching categories
-final class StopWatchingCategories extends CategoryEvent {
-  const StopWatchingCategories();
 }

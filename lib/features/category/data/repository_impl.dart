@@ -93,4 +93,17 @@ class CategoryRepositoryImpl implements CategoryRepository {
       );
     }
   }
+
+  @override
+  Stream<Either<Failure, List<CategoryEntity>>> watchAllCategories() {
+    try {
+      return _database.categoriesDao.watchAllCategories().map(
+        (categories) => Right<Failure, List<CategoryEntity>>(categories),
+      );
+    } catch (e) {
+      return Stream.value(
+        Left(DatabaseFailure('Failed to watch all categories: ${e.toString()}')),
+      );
+    }
+  }
 }

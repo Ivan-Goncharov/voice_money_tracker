@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_bloc.dart';
-import '../service_locator/service_locator.dart';
 import '../../generated/l10n/app_localizations.dart';
 import 'navigation_bloc.dart';
 import 'app_router_delegate.dart';
@@ -46,7 +45,13 @@ class _MoneyTrackerAppState extends State<MoneyTrackerApp> {
     _categoryBloc = CategoryBloc();
     _currencyBloc = CurrencyBloc();
     _settingsBloc = SettingsBloc();
-    _routerDelegate = AppRouterDelegate(_navigationBloc);
+    _routerDelegate = AppRouterDelegate(
+      navigationBloc: _navigationBloc,
+      categoryBloc: _categoryBloc,
+      expenseBloc: _expenseBloc,
+      currencyBloc: _currencyBloc,
+      analyticsBloc: _analyticsBloc,
+    );
     _routeInformationParser = AppRouteInformationParser();
 
     // Navigate to home on app start

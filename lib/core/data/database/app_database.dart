@@ -103,6 +103,10 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
   @override
   Stream<List<CategoryEntity>> watchActiveCategories() =>
       (select(categories)..where((tbl) => tbl.isActive.equals(true))).watch();
+
+  @override
+  Stream<List<CategoryEntity>> watchAllCategories() =>
+      (select(categories)).watch();
 }
 
 @DriftAccessor(tables: [Expenses, Categories])

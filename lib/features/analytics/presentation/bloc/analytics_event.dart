@@ -38,3 +38,10 @@ final class LoadRecentTransactions extends AnalyticsEvent {
 
   final int limit;
 }
+
+/// Internal event: emitted when interactor stream pushes new data
+final class _AnalyticsStreamUpdated extends AnalyticsEvent {
+  const _AnalyticsStreamUpdated(this.result);
+
+  final Either<Failure, AnalyticsBundle> result;
+}

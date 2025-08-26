@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dartz/dartz.dart';
+import 'package:bloc_concurrency/bloc_concurrency.dart' as bc;
+import 'package:equatable/equatable.dart';
+import 'package:rxdart/rxdart.dart' as rx;
 import '../../domain/interactors/category_interactor.dart';
 import '../../../../core/service_locator/service_locator.dart';
 import '../../../../core/data/database/database.dart';
@@ -9,225 +12,195 @@ import '../../../../core/error/failures.dart';
 part 'category_event.dart';
 part 'category_state.dart';
 
-/// BLoC for managing category operations
-/// Handles loading, creating, updating, and deleting categories
+/// CategoryBloc with permanent Drift subscription and unified state
 class CategoryBloc extends Bloc<CategoryEvent, CategoryState> {
   final CategoryInteractor _interactor;
-  StreamSubscription<Either<Failure, List<CategoryEntity>>>?
-  _categoriesSubscription;
+
+  StreamSubscription<Either<Failure, List<CategoryEntity>>>? _sub;
 
   CategoryBloc()
-    : _interactor = getIt<CategoryInteractor>(),
-      super(const CategoryInitial()) {
-    on<LoadActiveCategories>((event, emit) => _onLoadActiveCategories(emit));
-    on<LoadAllCategories>((event, emit) => _onLoadAllCategories(emit));
-    on<CreateCategory>(
-      (event, emit) => _onCreateCategory(
-        emit,
-        event.name,
-        event.description,
-        event.color,
-        event.iconCodePoint,
-      ),
+      : _interactor = getIt<CategoryInteractor>(),
+        super(CategoryState.initial()) {
+    // Permanent subscription: forward interactor stream into internal events
+    _sub = _interactor.categories$.listen((either) {
+      add(_CategoriesStreamUpdated(either));
+    });
+
+    on<_CategoriesStreamUpdated>(_onCategoriesUpdated, transformer: bc.droppable());
+
+    on<CategoriesFilterChanged>(
+      _onFilterChanged,
+      transformer: bc.restartable(),
     );
-    on<UpdateCategory>(
-      (event, emit) => _onUpdateCategory(
-        emit,
-        event.id,
-        event.name,
-        event.description,
-        event.color,
-        event.iconCodePoint,
-        event.isActive,
-      ),
+
+    on<CategorySearchChanged>(
+      _onSearchChanged,
+      transformer: _debounce(const Duration(milliseconds: 400)),
     );
-    on<DeactivateCategory>(
-      (event, emit) => _onDeactivateCategory(emit, event.id),
+
+    on<CategoryCreateRequested>(
+      _onCreateRequested,
+      transformer: bc.concurrent(),
     );
-    on<DeleteCategory>((event, emit) => _onDeleteCategory(emit, event.id));
-    on<StartWatchingCategories>(
-      (event, emit) => _onStartWatchingCategories(emit),
+
+    on<CategoryUpdatedRequested>(
+      _onUpdatedRequested,
+      transformer: bc.concurrent(),
     );
-    on<StopWatchingCategories>(
-      (event, emit) => _onStopWatchingCategories(emit),
+
+    on<CategoryDeactivatedRequested>(
+      _onDeactivatedRequested,
+      transformer: bc.concurrent(),
     );
+
+    on<CategoryDeletedRequested>(
+      _onDeletedRequested,
+      transformer: bc.concurrent(),
+    );
+  }
+
+  // Rx-based debounce transformer for search
+  EventTransformer<T> _debounce<T>(Duration d) {
+    return (events, mapper) => events.debounceTime(d).switchMap(mapper);
   }
 
   @override
-  Future<void> close() {
-    _categoriesSubscription?.cancel();
+  Future<void> close() async {
+    await _sub?.cancel();
     return super.close();
   }
 
-  /// Handle loading active categories
-  Future<void> _onLoadActiveCategories(Emitter<CategoryState> emit) async {
-    emit(const CategoryLoading());
-
-    final result = await _interactor.getActiveCategories();
-
-    result.fold(
-      (failure) => emit(CategoryError(message: failure.message)),
-      (categories) => emit(CategoryLoaded(categories: categories)),
-    );
-  }
-
-  /// Handle loading all categories
-  Future<void> _onLoadAllCategories(Emitter<CategoryState> emit) async {
-    emit(const CategoryLoading());
-
-    final result = await _interactor.getAllCategories();
-
-    result.fold(
-      (failure) => emit(CategoryError(message: failure.message)),
-      (categories) => emit(CategoryLoaded(categories: categories)),
-    );
-  }
-
-  /// Handle creating a new category
-  Future<void> _onCreateCategory(
+  // Handlers
+  void _onCategoriesUpdated(
+    _CategoriesStreamUpdated e,
     Emitter<CategoryState> emit,
-    String name,
-    String? description,
-    String color,
-    int iconCodePoint,
-  ) async {
-    emit(const CategoryLoading());
+  ) {
+    e.payload.fold(
+      (failure) => emit(
+        state.copyWith(
+          status: {...state.status, CategoryOp.load: Status.failure},
+          errors: {...state.errors, CategoryOp.load: failure},
+          all: const <CategoryEntity>[],
+        ),
+      ),
+      (categories) => emit(
+        state.copyWith(
+          status: {...state.status, CategoryOp.load: Status.success},
+          errors: {...state.errors, CategoryOp.load: null},
+          all: categories,
+        ),
+      ),
+    );
+  }
 
+  void _onFilterChanged(
+    CategoriesFilterChanged e,
+    Emitter<CategoryState> emit,
+  ) {
+    emit(state.copyWith(activeOnly: e.activeOnly));
+    _interactor.setActiveOnly(e.activeOnly);
+  }
+
+  void _onSearchChanged(
+    CategorySearchChanged e,
+    Emitter<CategoryState> emit,
+  ) {
+    emit(state.copyWith(
+      search: e.query,
+      status: {...state.status, CategoryOp.search: Status.success},
+      errors: {...state.errors, CategoryOp.search: null},
+    ));
+  }
+
+  Future<void> _onCreateRequested(
+    CategoryCreateRequested e,
+    Emitter<CategoryState> emit,
+  ) async {
+    emit(state.copyWith(
+      status: {...state.status, CategoryOp.create: Status.loading},
+      errors: {...state.errors, CategoryOp.create: null},
+    ));
     final result = await _interactor.createCategory(
-      name: name,
-      description: description,
-      color: color,
-      iconCodePoint: iconCodePoint,
+      name: e.name,
+      description: e.description,
+      color: e.color,
+      iconCodePoint: e.iconCodePoint,
     );
-
-    await result.fold(
-      (failure) async => emit(CategoryError(message: failure.message)),
-      (categoryId) async {
-        // Reload categories after creation
-        final categoriesResult = await _interactor.getActiveCategories();
-        categoriesResult.fold(
-          (failure) => emit(CategoryError(message: failure.message)),
-          (categories) => emit(
-            CategoryCreated(categoryId: categoryId, categories: categories),
-          ),
-        );
-      },
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: {...state.status, CategoryOp.create: Status.failure},
+        errors: {...state.errors, CategoryOp.create: failure},
+      )),
+      (_) => emit(state.copyWith(
+        status: {...state.status, CategoryOp.create: Status.success},
+      )),
     );
   }
 
-  /// Handle updating a category
-  Future<void> _onUpdateCategory(
+  Future<void> _onUpdatedRequested(
+    CategoryUpdatedRequested e,
     Emitter<CategoryState> emit,
-    int id,
-    String? name,
-    String? description,
-    String? color,
-    int? iconCodePoint,
-    bool? isActive,
   ) async {
-    emit(const CategoryLoading());
-
+    emit(state.copyWith(
+      status: {...state.status, CategoryOp.update: Status.loading},
+      errors: {...state.errors, CategoryOp.update: null},
+    ));
     final result = await _interactor.updateCategory(
-      id: id,
-      name: name,
-      description: description,
-      color: color,
-      iconCodePoint: iconCodePoint,
-      isActive: isActive,
+      id: e.id,
+      name: e.name,
+      description: e.description,
+      color: e.color,
+      iconCodePoint: e.iconCodePoint,
+      isActive: e.isActive,
     );
-
-    await result.fold(
-      (failure) async => emit(CategoryError(message: failure.message)),
-      (success) async {
-        if (success) {
-          // Reload categories after update
-          final categoriesResult = await _interactor.getActiveCategories();
-          categoriesResult.fold(
-            (failure) => emit(CategoryError(message: failure.message)),
-            (categories) => emit(CategoryUpdated(categories: categories)),
-          );
-        } else {
-          emit(const CategoryError(message: 'Failed to update category'));
-        }
-      },
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: {...state.status, CategoryOp.update: Status.failure},
+        errors: {...state.errors, CategoryOp.update: failure},
+      )),
+      (_) => emit(state.copyWith(
+        status: {...state.status, CategoryOp.update: Status.success},
+      )),
     );
   }
 
-  /// Handle deactivating a category
-  Future<void> _onDeactivateCategory(
+  Future<void> _onDeactivatedRequested(
+    CategoryDeactivatedRequested e,
     Emitter<CategoryState> emit,
-    int id,
   ) async {
-    emit(const CategoryLoading());
-
-    final result = await _interactor.deactivateCategory(id);
-
-    await result.fold(
-      (failure) async => emit(CategoryError(message: failure.message)),
-      (success) async {
-        if (success) {
-          // Reload categories after deactivation
-          final categoriesResult = await _interactor.getActiveCategories();
-          categoriesResult.fold(
-            (failure) => emit(CategoryError(message: failure.message)),
-            (categories) => emit(CategoryDeleted(categories: categories)),
-          );
-        } else {
-          emit(const CategoryError(message: 'Failed to deactivate category'));
-        }
-      },
+    emit(state.copyWith(
+      status: {...state.status, CategoryOp.delete: Status.loading},
+      errors: {...state.errors, CategoryOp.delete: null},
+    ));
+    final result = await _interactor.deactivateCategory(e.id);
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: {...state.status, CategoryOp.delete: Status.failure},
+        errors: {...state.errors, CategoryOp.delete: failure},
+      )),
+      (_) => emit(state.copyWith(
+        status: {...state.status, CategoryOp.delete: Status.success},
+      )),
     );
   }
 
-  /// Handle deleting a category permanently
-  Future<void> _onDeleteCategory(Emitter<CategoryState> emit, int id) async {
-    emit(const CategoryLoading());
-
-    final result = await _interactor.deleteCategory(id);
-
-    await result.fold(
-      (failure) async => emit(CategoryError(message: failure.message)),
-      (deletedCount) async {
-        if (deletedCount > 0) {
-          // Reload categories after deletion
-          final categoriesResult = await _interactor.getActiveCategories();
-          categoriesResult.fold(
-            (failure) => emit(CategoryError(message: failure.message)),
-            (categories) => emit(CategoryDeleted(categories: categories)),
-          );
-        } else {
-          emit(const CategoryError(message: 'Failed to delete category'));
-        }
-      },
+  Future<void> _onDeletedRequested(
+    CategoryDeletedRequested e,
+    Emitter<CategoryState> emit,
+  ) async {
+    emit(state.copyWith(
+      status: {...state.status, CategoryOp.delete: Status.loading},
+      errors: {...state.errors, CategoryOp.delete: null},
+    ));
+    final result = await _interactor.deleteCategory(e.id);
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: {...state.status, CategoryOp.delete: Status.failure},
+        errors: {...state.errors, CategoryOp.delete: failure},
+      )),
+      (_) => emit(state.copyWith(
+        status: {...state.status, CategoryOp.delete: Status.success},
+      )),
     );
-  }
-
-  /// Handle starting to watch categories for real-time updates
-  Future<void> _onStartWatchingCategories(Emitter<CategoryState> emit) async {
-    await _categoriesSubscription?.cancel();
-
-    _categoriesSubscription = _interactor.watchActiveCategories().listen((
-      result,
-    ) {
-      result.fold(
-        (failure) => emit(CategoryError(message: failure.message)),
-        (categories) =>
-            emit(CategoryLoaded(categories: categories, isWatching: true)),
-      );
-    });
-  }
-
-  /// Handle stopping watching categories
-  Future<void> _onStopWatchingCategories(Emitter<CategoryState> emit) async {
-    await _categoriesSubscription?.cancel();
-    _categoriesSubscription = null;
-
-    // Keep current categories but mark as not watching
-    final currentState = state;
-    if (currentState is CategoryLoaded) {
-      emit(
-        CategoryLoaded(categories: currentState.categories, isWatching: false),
-      );
-    }
   }
 }

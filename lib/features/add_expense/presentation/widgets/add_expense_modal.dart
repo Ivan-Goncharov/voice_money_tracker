@@ -6,10 +6,8 @@ import 'package:money_tracker_2/core/theme/app_theme.dart';
 import 'package:money_tracker_2/features/add_expense/presentation/blocs/add_expense_bloc/add_expense_modal_bloc.dart';
 import 'package:money_tracker_2/features/add_expense/presentation/blocs/add_expense_bloc/add_expense_modal_event.dart';
 import 'package:money_tracker_2/features/add_expense/presentation/blocs/add_expense_bloc/add_expense_modal_state.dart';
-import 'package:money_tracker_2/features/analytics/presentation/bloc/analytics_bloc.dart';
 import 'package:money_tracker_2/features/category/presentation/bloc/category_bloc.dart';
 import 'package:money_tracker_2/features/currency/presentation/bloc/currency_bloc.dart';
-import 'package:money_tracker_2/features/expense/presentation/bloc/expense_bloc.dart';
 import 'package:money_tracker_2/features/onboarding/presentation/bloc/onboarding_bloc.dart';
 import 'category_selection_bottom_sheet.dart';
 import 'date_selection_bottom_sheet.dart';
@@ -134,28 +132,22 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
   }
 
   void _showCategorySelection() {
-    final categoryState = context.read<CategoryBloc>().state;
-    final categories =
-        (categoryState is CategoryLoaded)
-            ? categoryState.categories
-            : (categoryState is CategoryError &&
-                categoryState.categories != null)
-            ? categoryState.categories!
-            : <CategoryEntity>[];
+    final categories = context.read<CategoryBloc>().state.categories;
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: false,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder:
-          (context) => CategorySelectionBottomSheet(
+          (_) => CategorySelectionBottomSheet(
             selectedCategory:
                 context.read<AddExpenseModalBloc>().state.selectedCategory,
             categories: categories,
             onCategorySelected: (category) {
               // Dispatch selection to the modal bloc; bottom sheet handles pop.
               context.read<AddExpenseModalBloc>().add(
-                SelectCategoryEvent(category),
+                AddExpenseCategorySelected(category),
               );
             },
           ),
@@ -166,13 +158,16 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
     final currentDate = context.read<AddExpenseModalBloc>().state.selectedDate;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: false,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder:
           (context) => DateSelectionBottomSheet(
             selectedDate: currentDate,
             onDateSelected: (date) {
-              context.read<AddExpenseModalBloc>().add(SelectDateEvent(date));
+              context.read<AddExpenseModalBloc>().add(
+                AddExpenseDateSelected(date),
+              );
             },
           ),
     );
@@ -181,6 +176,7 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
   void _showCurrencySelection() {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: false,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder:
@@ -189,7 +185,7 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
                 context.read<AddExpenseModalBloc>().state.selectedCurrency,
             onCurrencySelected: (currency) {
               context.read<AddExpenseModalBloc>().add(
-                SelectCurrencyEvent(currency),
+                AddExpenseCurrencySelected(currency),
               );
             },
           ),
@@ -237,8 +233,8 @@ class _AddExpenseModalState extends State<AddExpenseModal> {
       currency = currencyState.defaultCurrency;
     }
 
-    context.read<ExpenseBloc>().add(
-      CreateExpense(
+    context.read<AddExpenseModalBloc>().add(
+      AddExpenseSubmitted(
         amount: amount,
         description: description.isEmpty ? null : description,
         categoryId: selectedCategory.id,

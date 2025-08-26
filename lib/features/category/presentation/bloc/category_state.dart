@@ -1,55 +1,61 @@
 part of 'category_bloc.dart';
 
-/// States for CategoryBloc
-/// Represents all possible states during category operations
-sealed class CategoryState {
-  const CategoryState();
-}
+enum CategoryOp { load, refresh, create, update, delete, search }
+enum Status { idle, loading, success, failure }
 
-/// Initial state when the bloc is created
-final class CategoryInitial extends CategoryState {
-  const CategoryInitial();
-}
+/// Unified state with per-operation status/errors and live categories
+class CategoryState extends Equatable {
+  final List<CategoryEntity> _all; // raw list from DB
+  final bool activeOnly;
+  final String search;
 
-/// Loading state while performing category operations
-final class CategoryLoading extends CategoryState {
-  const CategoryLoading();
-}
+  final Map<CategoryOp, Status> status;
+  final Map<CategoryOp, Failure?> errors;
 
-/// State with loaded categories
-final class CategoryLoaded extends CategoryState {
-  const CategoryLoaded({required this.categories, this.isWatching = false});
+  const CategoryState({
+    required List<CategoryEntity> all,
+    required this.activeOnly,
+    required this.search,
+    this.status = const {},
+    this.errors = const {},
+  }) : _all = all;
 
-  final List<CategoryEntity> categories;
-  final bool isWatching;
-}
+  List<CategoryEntity> get categories {
+    if (search.isEmpty) return _all;
+    final q = search.toLowerCase().trim();
+    return _all
+        .where((c) => c.name.toLowerCase().contains(q) ||
+            (c.description?.toLowerCase().contains(q) ?? false))
+        .toList();
+  }
 
-/// State indicating successful category creation
-final class CategoryCreated extends CategoryState {
-  const CategoryCreated({required this.categoryId, required this.categories});
+  bool busy(CategoryOp op) => status[op] == Status.loading;
+  Failure? errorOf(CategoryOp op) => errors[op];
 
-  final int categoryId;
-  final List<CategoryEntity> categories;
-}
+  CategoryState copyWith({
+    List<CategoryEntity>? all,
+    bool? activeOnly,
+    String? search,
+    Map<CategoryOp, Status>? status,
+    Map<CategoryOp, Failure?>? errors,
+  }) {
+    return CategoryState(
+      all: all ?? _all,
+      activeOnly: activeOnly ?? this.activeOnly,
+      search: search ?? this.search,
+      status: status ?? this.status,
+      errors: errors ?? this.errors,
+    );
+  }
 
-/// State indicating successful category update
-final class CategoryUpdated extends CategoryState {
-  const CategoryUpdated({required this.categories});
+  static CategoryState initial() => const CategoryState(
+        all: <CategoryEntity>[],
+        activeOnly: true,
+        search: '',
+        status: {},
+        errors: {},
+      );
 
-  final List<CategoryEntity> categories;
-}
-
-/// State indicating successful category deletion/deactivation
-final class CategoryDeleted extends CategoryState {
-  const CategoryDeleted({required this.categories});
-
-  final List<CategoryEntity> categories;
-}
-
-/// Error state when something goes wrong
-final class CategoryError extends CategoryState {
-  const CategoryError({required this.message, this.categories});
-
-  final String message;
-  final List<CategoryEntity>? categories;
+  @override
+  List<Object?> get props => [_all, activeOnly, search, status, errors];
 }

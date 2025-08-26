@@ -28,4 +28,7 @@ abstract interface class CategoryRepository {
 
   /// Watch active categories for real-time updates
   Stream<Either<Failure, List<CategoryEntity>>> watchActiveCategories();
+
+  /// Watch all categories (active and inactive)
+  Stream<Either<Failure, List<CategoryEntity>>> watchAllCategories();
 }

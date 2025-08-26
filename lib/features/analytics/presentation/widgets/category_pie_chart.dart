@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../bloc/analytics_bloc.dart';
+import '../../domain/models/category_expense_data.dart';
 
 /// Pie chart widget for displaying category expense breakdown
 class CategoryPieChart extends StatelessWidget {

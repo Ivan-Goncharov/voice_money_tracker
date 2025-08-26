@@ -40,19 +40,5 @@ final class AnalyticsError extends AnalyticsState {
   final String message;
 }
 
-/// Data class for category expense breakdown
-class CategoryExpenseData {
-  const CategoryExpenseData({
-    required this.categoryId,
-    required this.categoryName,
-    required this.amount,
-    required this.color,
-    required this.percentage,
-  });
-
-  final int categoryId;
-  final String categoryName;
-  final double amount;
-  final String color;
-  final double percentage;
-}
+// CategoryExpenseData moved to domain models (see
+// lib/features/analytics/domain/models/category_expense_data.dart)

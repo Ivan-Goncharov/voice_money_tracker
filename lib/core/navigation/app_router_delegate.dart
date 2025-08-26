@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:money_tracker_2/features/add_expense/presentation/blocs/date_selection_cubit/date_selection_cubit.dart';
 import '../../features/onboarding/presentation/screens/home_screen.dart';
 import '../../features/add_expense/presentation/widgets/add_expense_modal.dart';
 import '../../features/add_expense/presentation/blocs/add_expense_bloc/add_expense_modal_bloc.dart';
@@ -8,57 +9,46 @@ import '../../features/expense/presentation/bloc/expense_bloc.dart';
 import '../../features/currency/presentation/bloc/currency_bloc.dart';
 import '../../features/analytics/presentation/bloc/analytics_bloc.dart';
 import '../../features/onboarding/presentation/bloc/onboarding_bloc.dart';
-import '../../core/service_locator/service_locator.dart';
 import 'navigation_bloc.dart';
 import 'app_route_state.dart';
 import 'page_config.dart';
 
 class AppRouterDelegate extends RouterDelegate<AppRouteState>
     with ChangeNotifier, PopNavigatorRouterDelegateMixin<AppRouteState> {
-  final NavigationBloc _navigationBloc;
+  final NavigationBloc navigationBloc;
 
   // Global Blocs that are used across multiple pages
-  late final CategoryBloc _categoryBloc;
-  late final ExpenseBloc _expenseBloc;
-  late final CurrencyBloc _currencyBloc;
-  late final AnalyticsBloc _analyticsBloc;
+  final CategoryBloc categoryBloc;
+  final ExpenseBloc expenseBloc;
+  final CurrencyBloc currencyBloc;
+  final AnalyticsBloc analyticsBloc;
 
   @override
   final GlobalKey<NavigatorState> navigatorKey;
 
-  AppRouterDelegate(this._navigationBloc)
-    : navigatorKey = GlobalKey<NavigatorState>() {
-    _navigationBloc.stream.listen((_) => notifyListeners());
-
-    // Initialize global blocs
-    _categoryBloc = getIt<CategoryBloc>()..add(const LoadActiveCategories());
-    _expenseBloc = getIt<ExpenseBloc>();
-    _currencyBloc = getIt<CurrencyBloc>();
-    _analyticsBloc = getIt<AnalyticsBloc>();
+  AppRouterDelegate({
+    required this.navigationBloc,
+    required this.categoryBloc,
+    required this.expenseBloc,
+    required this.currencyBloc,
+    required this.analyticsBloc,
+  }) : navigatorKey = GlobalKey<NavigatorState>() {
+    navigationBloc.stream.listen((_) => notifyListeners());
   }
 
   @override
-  AppRouteState get currentConfiguration => _navigationBloc.state;
+  AppRouteState get currentConfiguration => navigationBloc.state;
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider.value(value: _navigationBloc),
-        BlocProvider.value(value: _categoryBloc),
-        BlocProvider.value(value: _expenseBloc),
-        BlocProvider.value(value: _currencyBloc),
-        BlocProvider.value(value: _analyticsBloc),
-      ],
-      child: BlocBuilder<NavigationBloc, AppRouteState>(
-        builder: (context, state) {
-          return Navigator(
-            key: navigatorKey,
-            pages: _buildPages(state),
-            onDidRemovePage: _onDidRemovePage,
-          );
-        },
-      ),
+    return BlocBuilder<NavigationBloc, AppRouteState>(
+      builder: (context, state) {
+        return Navigator(
+          key: navigatorKey,
+          pages: _buildPages(state),
+          onDidRemovePage: _onDidRemovePage,
+        );
+      },
     );
   }
 
@@ -136,11 +126,13 @@ class AppRouterDelegate extends RouterDelegate<AppRouteState>
       child: MultiBlocProvider(
         providers: [
           BlocProvider(create: (context) => OnboardingBloc()),
-          BlocProvider.value(value: _expenseBloc),
-          BlocProvider.value(value: _categoryBloc),
-          BlocProvider.value(value: _currencyBloc),
-          BlocProvider.value(value: _analyticsBloc),
-          BlocProvider.value(value: _navigationBloc),
+          BlocProvider.value(value: expenseBloc),
+          BlocProvider.value(value: categoryBloc),
+          BlocProvider.value(value: currencyBloc),
+          BlocProvider.value(value: analyticsBloc),
+          BlocProvider.value(value: navigationBloc),
+          BlocProvider(create: (_) => DateSelectionCubit(DateTime.now())),
+          BlocProvider(create: (_) => AddExpenseModalBloc()),
         ],
         child: const AddExpenseModal(),
       ),
@@ -149,15 +141,15 @@ class AppRouterDelegate extends RouterDelegate<AppRouteState>
 
   void _onDidRemovePage(Page page) {
     // Handle modal dismissal
-    if (_navigationBloc.state.showExpenseModal &&
+    if (navigationBloc.state.showExpenseModal &&
         page.key == const ValueKey('expense_modal')) {
-      _navigationBloc.add(const HideExpenseModal());
+      navigationBloc.add(const HideExpenseModal());
       return;
     }
 
     // Handle regular page navigation
-    if (_navigationBloc.state.canPop) {
-      _navigationBloc.add(const PopPage());
+    if (navigationBloc.state.canPop) {
+      navigationBloc.add(const PopPage());
     }
   }
 
@@ -169,8 +161,8 @@ class AppRouterDelegate extends RouterDelegate<AppRouteState>
 
   @override
   void dispose() {
-    _categoryBloc.close();
-    _expenseBloc.close();
+    categoryBloc.close();
+    expenseBloc.close();
     super.dispose();
   }
 }

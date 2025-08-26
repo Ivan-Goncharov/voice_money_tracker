@@ -27,4 +27,7 @@ abstract interface class CategoriesDaoInterface {
 
   /// Watch active categories for real-time updates
   Stream<List<CategoryEntity>> watchActiveCategories();
+
+  /// Watch all categories (active and inactive)
+  Stream<List<CategoryEntity>> watchAllCategories();
 }

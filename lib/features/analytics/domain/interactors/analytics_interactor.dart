@@ -1,10 +1,11 @@
+import 'dart:async';
 import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/service_locator/service_locator.dart';
 import '../../../../core/data/database/database.dart';
 import '../../../expense/domain/repository.dart';
 import '../../../category/domain/repository.dart';
-import '../../presentation/bloc/analytics_bloc.dart';
+import '../models/category_expense_data.dart';
 
 /// Interactor for analytics business logic
 /// Handles calculations for balance, statistics, and data preparation for charts
@@ -76,81 +77,64 @@ class AnalyticsInteractor {
     }
   }
 
-  /// Get category breakdown for expenses in a period
-  Future<Either<Failure, List<CategoryExpenseData>>> getCategoryBreakdown(
-    DateTime startDate,
-    DateTime endDate,
-  ) async {
+  /// Build category breakdown for a list of expenses and categories
+  Either<Failure, List<CategoryExpenseData>> buildCategoryBreakdown(
+    List<ExpenseEntity> expenses,
+    List<CategoryEntity> categories,
+  ) {
     try {
-      // Get all expenses with categories for the period
-      final expensesResult = await _expenseRepository.getExpensesByDateRange(
-        startDate,
-        endDate,
-      );
-      final categoriesResult = await _categoryRepository.getActiveCategories();
+      final categoryTotals = <int, double>{};
+      double totalExpenses = 0;
 
-      return expensesResult.fold(
-        (failure) => Left(failure),
-        (expenses) =>
-            categoriesResult.fold((failure) => Left(failure), (categories) {
-              // Group expenses by category
-              final categoryTotals = <int, double>{};
-              double totalExpenses = 0;
+      for (final expense in expenses) {
+        categoryTotals[expense.categoryId] =
+            (categoryTotals[expense.categoryId] ?? 0) + expense.amount;
+        totalExpenses += expense.amount;
+      }
 
-              for (final expense in expenses) {
-                categoryTotals[expense.categoryId] =
-                    (categoryTotals[expense.categoryId] ?? 0) + expense.amount;
-                totalExpenses += expense.amount;
-              }
+      final breakdown = <CategoryExpenseData>[];
+      for (final category in categories) {
+        final amount = categoryTotals[category.id] ?? 0;
+        if (amount > 0) {
+          final percentage = totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0.0;
+          breakdown.add(
+            CategoryExpenseData(
+              categoryId: category.id,
+              categoryName: category.name,
+              amount: amount,
+              color: category.color,
+              percentage: percentage,
+            ),
+          );
+        }
+      }
 
-              // Create category breakdown data
-              final breakdown = <CategoryExpenseData>[];
-              for (final category in categories) {
-                final amount = categoryTotals[category.id] ?? 0;
-                if (amount > 0) {
-                  final percentage =
-                      totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0.0;
-                  breakdown.add(
-                    CategoryExpenseData(
-                      categoryId: category.id,
-                      categoryName: category.name,
-                      amount: amount,
-                      color: category.color,
-                      percentage: percentage,
-                    ),
-                  );
-                }
-              }
-
-              // Sort by amount descending
-              breakdown.sort((a, b) => b.amount.compareTo(a.amount));
-
-              return Right(breakdown);
-            }),
-      );
+      breakdown.sort((a, b) => b.amount.compareTo(a.amount));
+      return Right(breakdown);
     } catch (e) {
       return Left(
-        DatabaseFailure('Failed to get category breakdown: ${e.toString()}'),
+        DatabaseFailure('Failed to build category breakdown: ${e.toString()}'),
       );
     }
   }
 
-  /// Get recent transactions with category information
-  Future<Either<Failure, List<ExpenseWithCategory>>> getRecentTransactions(
-    int limit,
-  ) async {
+  /// Build recent transactions from raw expenses + categories
+  Either<Failure, List<ExpenseWithCategory>> buildRecentTransactions(
+    List<ExpenseEntity> allExpenses,
+    List<CategoryEntity> categories, {
+    int limit = 5,
+  }) {
     try {
-      final expensesResult = await _expenseRepository.getExpensesWithCategory();
-
-      return expensesResult.fold((failure) => Left(failure), (expenses) {
-        // Sort by date descending and take the limit
-        expenses.sort((a, b) => b.expense.date.compareTo(a.expense.date));
-        final recentExpenses = expenses.take(limit).toList();
-        return Right(recentExpenses);
-      });
+      final byId = {for (final c in categories) c.id: c};
+      final sorted = List<ExpenseEntity>.from(allExpenses)
+        ..sort((a, b) => b.date.compareTo(a.date));
+      final recent = sorted.take(limit).map((e) {
+        return ExpenseWithCategory(expense: e, category: byId[e.categoryId]);
+      }).toList();
+      return Right(recent);
     } catch (e) {
       return Left(
-        DatabaseFailure('Failed to get recent transactions: ${e.toString()}'),
+        DatabaseFailure('Failed to build recent transactions: ${e.toString()}'),
       );
     }
   }
@@ -193,6 +177,119 @@ class AnalyticsInteractor {
         DatabaseFailure('Failed to get monthly stats: ${e.toString()}'),
       );
     }
+  }
+
+  /// Expose a stream of analytics bundle for a given date range.
+  /// This combines expense and category streams and computes derived metrics.
+  Stream<Either<Failure, AnalyticsBundle>> watchAnalyticsForRange(
+    DateTime startDate,
+    DateTime endDate, {
+    int recentLimit = 5,
+  }) {
+    // Source streams
+    final expensesInRange$ =
+        _expenseRepository.watchExpensesByDateRange(startDate, endDate);
+    // Use a wide range to approximate "all-time" for balance and recents
+    final allExpenses$ = _expenseRepository.watchExpensesByDateRange(
+      DateTime(2020, 1, 1),
+      DateTime.now(),
+    );
+    final categories$ = _categoryRepository.watchActiveCategories();
+
+    // Latest caches
+    Either<Failure, List<ExpenseEntity>>? latestInRange;
+    Either<Failure, List<ExpenseEntity>>? latestAll;
+    Either<Failure, List<CategoryEntity>>? latestCats;
+
+    late final StreamController<Either<Failure, AnalyticsBundle>> controller;
+    StreamSubscription? a;
+    StreamSubscription? b;
+    StreamSubscription? c;
+
+    void recompute() {
+      if (latestInRange == null || latestAll == null || latestCats == null) {
+        return;
+      }
+      // If any is a failure, emit the first failure
+      final failure = latestInRange!.fold<Failure?>(
+        (l) => l,
+        (_) => latestAll!.fold<Failure?>(
+          (l) => l,
+          (_) => latestCats!.fold<Failure?>(
+            (l) => l,
+            (_) => null,
+          ),
+        ),
+      );
+      if (failure != null) {
+        controller.add(Left(failure));
+        return;
+      }
+
+      final expensesInRange = latestInRange!.fold((_) => <ExpenseEntity>[], (r) => r);
+      final allExpenses = latestAll!.fold((_) => <ExpenseEntity>[], (r) => r);
+      final categories = latestCats!.fold((_) => <CategoryEntity>[], (r) => r);
+
+      final monthlyExpenses = expensesInRange.fold<double>(0.0, (sum, e) => sum + e.amount);
+      final monthlyIncome = monthlyExpenses * 1.5; // demo income estimation
+
+      final breakdownEither = buildCategoryBreakdown(expensesInRange, categories);
+      final recentsEither = buildRecentTransactions(
+        allExpenses,
+        categories,
+        limit: recentLimit,
+      );
+
+      if (breakdownEither.isLeft()) {
+        controller.add(Left(breakdownEither.fold((l) => l, (_) => DatabaseFailure('unknown'))));
+        return;
+      }
+      if (recentsEither.isLeft()) {
+        controller.add(Left(recentsEither.fold((l) => l, (_) => DatabaseFailure('unknown'))));
+        return;
+      }
+
+      // Current balance: starting 0 - sum(all expenses)
+      final totalAll = allExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
+      const startingBalance = 0.0;
+      final balance = startingBalance - totalAll;
+
+      controller.add(
+        Right(
+          AnalyticsBundle(
+            balance: balance,
+            monthlyExpenses: monthlyExpenses,
+            monthlyIncome: monthlyIncome,
+            categoryBreakdown: breakdownEither.fold((_) => const [], (r) => r),
+            recentTransactions: recentsEither.fold((_) => const [], (r) => r),
+          ),
+        ),
+      );
+    }
+
+    controller = StreamController<Either<Failure, AnalyticsBundle>>.broadcast(
+      onListen: () {
+        a = expensesInRange$.listen((event) {
+          latestInRange = event;
+          recompute();
+        });
+        b = allExpenses$.listen((event) {
+          latestAll = event;
+          recompute();
+        });
+        c = categories$.listen((event) {
+          latestCats = event;
+          recompute();
+        });
+      },
+      onCancel: () async {
+        await a?.cancel();
+        await b?.cancel();
+        await c?.cancel();
+      },
+    );
+
+    return controller.stream;
   }
 }
 

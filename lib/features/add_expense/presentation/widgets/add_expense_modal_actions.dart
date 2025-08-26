@@ -6,23 +6,24 @@ class _ActionSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<ExpenseBloc, ExpenseState>(
+    return BlocConsumer<AddExpenseModalBloc, AddExpenseModalState>(
       listener: (context, state) {
-        if (state is ExpenseCreated) {
-          context.read<AnalyticsBloc>().add(const RefreshAnalytics());
+        final failure = state.errorOf(Op.create);
+        final status = state.status[Op.create];
+        if (status == ExpenseStatus.success && state.createdExpenseId != null) {
           context.read<OnboardingBloc>().add(const CompleteOnboarding());
           context.read<NavigationBloc>().add(const HideExpenseModal());
-        } else if (state is ExpenseError) {
+        } else if (status == ExpenseStatus.failure && failure != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error: ${state.message}'),
+              content: Text('Error: ${failure.message}'),
               backgroundColor: AppTheme.error,
             ),
           );
         }
       },
       builder: (context, state) {
-        final isLoading = state is ExpenseLoading;
+        final isLoading = state.busy(Op.create);
 
         return Container(
           width: double.infinity,

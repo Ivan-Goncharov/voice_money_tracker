@@ -6,36 +6,57 @@ sealed class AddExpenseModalEvent extends Equatable {
   const AddExpenseModalEvent();
 }
 
-final class SelectCategoryEvent extends AddExpenseModalEvent {
+final class AddExpenseCategorySelected extends AddExpenseModalEvent {
   final CategoryEntity category;
-
-  const SelectCategoryEvent(this.category);
-
+  const AddExpenseCategorySelected(this.category);
   @override
   List<Object?> get props => [category];
 }
 
-final class SelectCurrencyEvent extends AddExpenseModalEvent {
+final class AddExpenseCurrencySelected extends AddExpenseModalEvent {
   final CurrencyEntity currency;
-
-  const SelectCurrencyEvent(this.currency);
-
+  const AddExpenseCurrencySelected(this.currency);
   @override
   List<Object?> get props => [currency];
 }
 
-final class SelectDateEvent extends AddExpenseModalEvent {
+final class AddExpenseDateSelected extends AddExpenseModalEvent {
   final DateTime date;
-
-  const SelectDateEvent(this.date);
-
+  const AddExpenseDateSelected(this.date);
   @override
   List<Object?> get props => [date];
 }
 
-final class ResetAddExpenseModalEvent extends AddExpenseModalEvent {
-  const ResetAddExpenseModalEvent();
-
+final class AddExpenseResetRequested extends AddExpenseModalEvent {
+  const AddExpenseResetRequested();
   @override
   List<Object?> get props => [];
+}
+
+final class AddExpenseSubmitted extends AddExpenseModalEvent {
+  final double amount;
+  final String? description;
+  final int categoryId;
+  final DateTime date;
+  final int? currencyId;
+  final String? notes;
+
+  const AddExpenseSubmitted({
+    required this.amount,
+    this.description,
+    required this.categoryId,
+    required this.date,
+    this.currencyId,
+    this.notes,
+  });
+
+  @override
+  List<Object?> get props => [
+    amount,
+    description,
+    categoryId,
+    date,
+    currencyId,
+    notes,
+  ];
 }

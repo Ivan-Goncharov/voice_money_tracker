@@ -29,28 +29,6 @@ final class LoadExpensesByCategory extends ExpenseEvent {
   final int categoryId;
 }
 
-/// Create a new expense
-final class CreateExpense extends ExpenseEvent {
-  const CreateExpense({
-    required this.amount,
-    this.description,
-    required this.categoryId,
-    required this.date,
-    this.currencyId,
-    this.notes,
-    this.isRecurring = false,
-    this.recurringType,
-  });
-
-  final double amount;
-  final String? description;
-  final int categoryId;
-  final DateTime date;
-  final int? currencyId;
-  final String? notes;
-  final bool isRecurring;
-  final String? recurringType;
-}
 
 /// Update an existing expense
 final class UpdateExpense extends ExpenseEvent {

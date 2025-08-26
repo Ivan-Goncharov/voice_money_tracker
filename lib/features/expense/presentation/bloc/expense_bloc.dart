@@ -27,19 +27,6 @@ class ExpenseBloc extends Bloc<ExpenseEvent, ExpenseState> {
     on<LoadExpensesByCategory>(
       (event, emit) => _onLoadExpensesByCategory(emit, event.categoryId),
     );
-    on<CreateExpense>(
-      (event, emit) => _onCreateExpense(
-        emit,
-        event.amount,
-        event.description,
-        event.categoryId,
-        event.date,
-        event.currencyId,
-        event.notes,
-        event.isRecurring,
-        event.recurringType,
-      ),
-    );
     on<UpdateExpense>(
       (event, emit) => _onUpdateExpense(
         emit,
@@ -121,53 +108,6 @@ class ExpenseBloc extends Bloc<ExpenseEvent, ExpenseState> {
     );
   }
 
-  /// Handle creating a new expense
-  Future<void> _onCreateExpense(
-    Emitter<ExpenseState> emit,
-    double amount,
-    String? description,
-    int categoryId,
-    DateTime date,
-    int? currencyId,
-    String? notes,
-    bool isRecurring,
-    String? recurringType,
-  ) async {
-    print(
-      'DEBUG: ExpenseBloc._onCreateExpense called with amount: $amount, categoryId: $categoryId',
-    );
-    emit(const ExpenseLoading());
-
-    final result = await _interactor.createExpense(
-      amount: amount,
-      description: description,
-      categoryId: categoryId,
-      date: date,
-      currencyId: currencyId,
-      notes: notes,
-      isRecurring: isRecurring,
-      recurringType: recurringType,
-    );
-
-    await result.fold(
-      (failure) async {
-        print('DEBUG: ExpenseBloc._onCreateExpense failed: ${failure.message}');
-        emit(ExpenseError(message: failure.message));
-      },
-      (expenseId) async {
-        print(
-          'DEBUG: ExpenseBloc._onCreateExpense success, expenseId: $expenseId',
-        );
-        // Reload expenses after creation
-        final expensesResult = await _interactor.getAllExpenses();
-        expensesResult.fold(
-          (failure) => emit(ExpenseError(message: failure.message)),
-          (expenses) =>
-              emit(ExpenseCreated(expenseId: expenseId, expenses: expenses)),
-        );
-      },
-    );
-  }
 
   /// Handle updating an expense
   Future<void> _onUpdateExpense(

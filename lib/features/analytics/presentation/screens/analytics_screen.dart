@@ -4,6 +4,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/data/database/database.dart';
 import '../../../../generated/l10n/app_localizations.dart';
 import '../bloc/analytics_bloc.dart';
+import '../../domain/models/category_expense_data.dart';
 import '../widgets/category_pie_chart.dart';
 
 /// Analytics screen showing financial overview
